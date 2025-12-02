@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
+    <title>Pro RMT Calculator v2</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"
+    ></script>
+    <script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: { extend: { colors: { slate: { 850: "#151e2e" } } } },
+      };
+    </script>
+    <style>
+      [x-cloak] {
+        display: none !important;
+      }
+      input::-webkit-outer-spin-button,
+      input::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+      input[type="number"] {
+        -moz-appearance: textfield;
+      }
+      .anim-pulse {
+        animation: pulse-blue 2s infinite;
+      }
+      @keyframes pulse-blue {
+        0% {
+          box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4);
+        }
+        70% {
+          box-shadow: 0 0 0 6px rgba(99, 102, 241, 0);
+        }
+        100% {
+          box-shadow: 0 0 0 0 rgba(99, 102, 241, 0);
+        }
+      }
+    </style>
+  </head>
+  <body
+    class="bg-gray-100 text-gray-800 transition-colors duration-200"
+    x-data="appData()"
+    x-init="initData()"
+    :class="{ 'dark bg-slate-900 text-gray-100': darkMode }"
+  >
+    <nav class="bg-white dark:bg-slate-800 shadow-md p-4 sticky top-0 z-50">
+      <div class="max-w-5xl mx-auto flex justify-between items-center">
+        <div class="flex items-center gap-2">
+          <span class="text-2xl">🧮</span>
+          <h1 class="font-bold text-xl tracking-tight">
+            Currency<span class="text-indigo-500">Calc</span>
+            <span class="text-xs text-gray-400 font-normal">PRO</span>
+          </h1>
+        </div>
+        <button
+          @click="toggleDark()"
+          class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700 transition"
+        >
+          <span x-show="!darkMode">🌙</span
+          ><span
+            x-show="darkMode"
+            x-cloak
+            >☀️</span
+          >
+        </button>
+      </div>
+    </nav>
+
+    <div class="max-w-5xl mx-auto p-4 md:p-6 pb-24">
+      <div
+        class="mb-6 flex flex-col md:flex-row gap-4 items-center justify-between bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700"
+      >
+        <div class="w-full flex-1">
+          <label
+            class="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400 mb-1 block"
+            >Active Profile</label
+          >
+          <select
+            x-model="activeProfileId"
+            @change="loadProfile()"
+            class="w-full bg-gray-50 dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded-lg p-2.5 font-medium focus:ring-2 focus:ring-indigo-500 outline-none"
+          >
+            <template
+              x-for="profile in profiles"
+              :key="profile.id"
+            >
+              <option
+                :value="profile.id"
+                x-text="profile.name"
+              ></option>
+            </template>
+          </select>
+        </div>
+        <div class="flex gap-2 w-full md:w-auto mt-2 md:mt-0 flex-wrap">
+          <button
+            @click="isEditingProfile = true"
+            class="flex-1 md:flex-none px-4 py-2 bg-gray-200 dark:bg-slate-700 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-slate-600 transition text-sm"
+          >
+            ⚙️ Edit
+          </button>
+          <button
+            @click="createNewProfile()"
+            class="flex-1 md:flex-none px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition text-sm"
+          >
+            + New
+          </button>
+        </div>
+      </div>
+
+      <div
+        class="mb-6 bg-gray-200 dark:bg-slate-700 p-1 rounded-lg inline-flex w-full md:w-auto"
+      >
+        <button
+          @click="setMode('standard')"
+          :class="calcMode === 'standard' ? 'bg-white dark:bg-slate-600 shadow text-indigo-600 dark:text-white' : 'text-gray-500 dark:text-gray-400'"
+          class="flex-1 md:flex-none px-6 py-2 rounded-md text-sm font-bold transition-all duration-200"
+        >
+          Standard (Calculate Profit)
+        </button>
+        <button
+          @click="setMode('reverse')"
+          :class="calcMode === 'reverse' ? 'bg-white dark:bg-slate-600 shadow text-indigo-600 dark:text-white' : 'text-gray-500 dark:text-gray-400'"
+          class="flex-1 md:flex-none px-6 py-2 rounded-md text-sm font-bold transition-all duration-200"
+        >
+          Reverse (Target Price)
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-2 space-y-6">
+          <div
+            x-show="calcMode === 'reverse'"
+            x-transition
+            class="bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-200 dark:border-indigo-800 p-6 relative overflow-hidden"
+          >
+            <div class="absolute top-0 right-0 p-2 opacity-10 text-6xl">🎯</div>
+            <div class="flex justify-between items-center mb-4 relative z-10">
+              <h2
+                class="text-lg font-bold text-indigo-800 dark:text-indigo-200"
+              >
+                Set Your Target
+              </h2>
+              <div
+                class="flex bg-white dark:bg-slate-800 rounded-lg p-1 shadow-sm"
+              >
+                <button
+                  @click="reverseType = 'fiat'; calculateReverse()"
+                  :class="reverseType === 'fiat' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-500'"
+                  class="px-3 py-1 text-xs font-bold rounded"
+                >
+                  Fixed $
+                </button>
+                <button
+                  @click="reverseType = 'margin'; calculateReverse()"
+                  :class="reverseType === 'margin' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-500'"
+                  class="px-3 py-1 text-xs font-bold rounded"
+                >
+                  % Margin
+                </button>
+              </div>
+            </div>
+
+            <div class="relative z-10">
+              <label
+                class="block text-sm font-bold mb-1 text-indigo-800 dark:text-indigo-200"
+              >
+                <span
+                  x-text="reverseType === 'fiat' ? 'I want to make exactly ($):' : 'I want a specific Margin (%):'"
+                ></span>
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                x-model.number="targetValue"
+                @input="calculateReverse()"
+                class="w-full p-4 bg-white dark:bg-slate-800 border-2 border-indigo-400 rounded-lg focus:ring-4 focus:ring-indigo-300 outline-none text-2xl font-bold text-indigo-700 dark:text-indigo-300"
+              />
+            </div>
+          </div>
+
+          <div
+            class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700 p-6"
+          >
+            <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+              <span>📝</span> Transaction Details
+            </h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div class="col-span-2">
+                <label
+                  class="block text-sm font-medium mb-1 text-gray-600 dark:text-gray-300"
+                  >Quantity / Amount</label
+                >
+                <div class="relative">
+                  <input
+                    type="number"
+                    x-model.number="amount"
+                    @input="handleInput()"
+                    class="w-full p-3 bg-gray-50 dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-lg font-mono"
+                  />
+                  <span
+                    class="absolute right-4 top-3.5 text-gray-400 text-sm font-bold"
+                    x-text="currentProfile.unit"
+                  ></span>
+                </div>
+              </div>
+
+              <div>
+                <label
+                  class="block text-sm font-medium mb-1 text-gray-600 dark:text-gray-300"
+                  >Supplier Cost (Per Unit)</label
+                >
+                <div class="relative">
+                  <span class="absolute left-3 top-3.5 text-gray-500">$</span>
+                  <input
+                    type="number"
+                    step="0.0001"
+                    x-model.number="buyPrice"
+                    @input="handleInput()"
+                    class="w-full pl-7 p-3 bg-gray-50 dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-mono"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label
+                  class="block text-sm font-medium mb-1 text-gray-600 dark:text-gray-300 flex justify-between"
+                >
+                  <span>Selling Price (Per Unit)</span>
+                  <span
+                    x-show="calcMode === 'reverse'"
+                    class="text-xs text-indigo-500 font-bold uppercase anim-pulse"
+                    >Auto-Calculated</span
+                  >
+                </label>
+                <div class="relative">
+                  <span class="absolute left-3 top-3.5 text-gray-500">$</span>
+                  <input
+                    type="number"
+                    step="0.0001"
+                    x-model.number="sellPrice"
+                    :readonly="calcMode === 'reverse'"
+                    :class="calcMode === 'reverse' ? 'bg-indigo-50 border-indigo-300 text-indigo-800 dark:bg-indigo-900 dark:border-indigo-700 dark:text-indigo-200' : 'bg-gray-50 dark:bg-slate-900 border-gray-300 dark:border-slate-600'"
+                    class="w-full pl-7 p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-mono transition-colors duration-300 font-bold"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div
+            class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700 p-6"
+          >
+            <div class="flex justify-between items-center mb-4">
+              <h2 class="text-lg font-bold flex items-center gap-2">
+                <span>📉</span> Platform Fees
+              </h2>
+            </div>
+
+            <div class="grid grid-cols-2 gap-5">
+              <div>
+                <label
+                  class="block text-sm font-medium mb-1 text-gray-600 dark:text-gray-300"
+                  >Percentage Fee (%)</label
+                >
+                <input
+                  type="number"
+                  x-model.number="feePercent"
+                  @input="handleInput()"
+                  class="w-full p-3 bg-gray-50 dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-mono"
+                />
+              </div>
+              <div>
+                <label
+                  class="block text-sm font-medium mb-1 text-gray-600 dark:text-gray-300"
+                  >Fixed Fee ($)</label
+                >
+                <input
+                  type="number"
+                  x-model.number="feeFixed"
+                  @input="handleInput()"
+                  class="w-full p-3 bg-gray-50 dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-mono"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="lg:col-span-1">
+          <div
+            class="bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-gray-200 dark:border-slate-700 overflow-hidden sticky top-24"
+          >
+            <div
+              class="p-4 bg-gray-50 dark:bg-slate-850 border-b border-gray-200 dark:border-slate-700 flex justify-between items-center"
+            >
+              <h3
+                class="font-bold text-gray-500 dark:text-gray-400 uppercase text-xs tracking-wider"
+              >
+                Breakdown
+              </h3>
+              <span
+                x-show="calcMode === 'reverse'"
+                class="text-xs bg-indigo-500 text-white px-2 py-0.5 rounded"
+                >Target Mode</span
+              >
+            </div>
+
+            <div class="p-6 space-y-4">
+              <div class="flex justify-between items-center">
+                <span class="text-gray-600 dark:text-gray-400"
+                  >Total Revenue</span
+                >
+                <span
+                  class="font-bold text-lg"
+                  x-text="formatMoney(revenue)"
+                ></span>
+              </div>
+
+              <div class="flex justify-between items-center">
+                <span class="text-gray-600 dark:text-gray-400"
+                  >Total Cost (Buy)</span
+                >
+                <span
+                  class="font-mono text-red-400"
+                  x-text="'- ' + formatMoney(cost)"
+                ></span>
+              </div>
+
+              <div class="flex justify-between items-center">
+                <span class="text-gray-600 dark:text-gray-400">Total Fees</span>
+                <span
+                  class="font-mono text-orange-400"
+                  x-text="'- ' + formatMoney(totalFees)"
+                ></span>
+              </div>
+
+              <hr class="border-gray-200 dark:border-slate-700 my-2" />
+
+              <div class="flex justify-between items-center">
+                <span class="font-bold text-xl">Net Profit</span>
+                <span
+                  class="font-bold text-2xl font-mono"
+                  :class="netProfit >= 0 ? 'text-green-500' : 'text-red-500'"
+                  x-text="formatMoney(netProfit)"
+                ></span>
+              </div>
+
+              <div class="grid grid-cols-2 gap-2 pt-2">
+                <div
+                  class="bg-gray-100 dark:bg-slate-700 p-2 rounded text-center"
+                >
+                  <div
+                    class="text-xs text-gray-500 dark:text-gray-400 uppercase"
+                  >
+                    Margin
+                  </div>
+                  <div
+                    class="font-bold"
+                    :class="margin >= 20 ? 'text-green-500' : (margin > 0 ? 'text-yellow-500' : 'text-red-500')"
+                    x-text="margin + '%'"
+                  ></div>
+                </div>
+                <div
+                  class="bg-gray-100 dark:bg-slate-700 p-2 rounded text-center"
+                  title="Price per unit needed to earn $0"
+                >
+                  <div
+                    class="text-xs text-gray-500 dark:text-gray-400 uppercase"
+                  >
+                    Break Even
+                  </div>
+                  <div
+                    class="font-bold text-gray-700 dark:text-gray-200"
+                    x-text="'$' + breakEvenPrice"
+                  ></div>
+                </div>
+              </div>
+            </div>
+
+            <div
+              class="p-4 bg-gray-50 dark:bg-slate-850 border-t border-gray-200 dark:border-slate-700 grid grid-cols-2 gap-2"
+            >
+              <button
+                @click="copyToClipboard(calcMode === 'reverse' ? sellPrice : netProfit, calcMode === 'reverse' ? 'Price' : 'Profit')"
+                class="p-2 text-sm bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded hover:bg-gray-50 dark:hover:bg-slate-600 transition"
+              >
+                📋 Copy Result
+              </button>
+              <button
+                @click="resetInputs()"
+                class="p-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition"
+              >
+                ↺ Reset
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div
+      x-show="isEditingProfile"
+      x-cloak
+      class="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+    >
+      <div
+        class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md overflow-hidden"
+        @click.away="isEditingProfile = false"
+      >
+        <div
+          class="p-4 border-b border-gray-200 dark:border-slate-700 flex justify-between items-center"
+        >
+          <h3 class="font-bold text-lg">Edit Profile</h3>
+          <button
+            @click="isEditingProfile = false"
+            class="text-gray-500 hover:text-gray-700"
+          >
+            &times;
+          </button>
+        </div>
+        <div class="p-6 space-y-4">
+          <div>
+            <label class="block text-sm font-medium mb-1">Profile Name</label>
+            <input
+              type="text"
+              x-model="currentProfile.name"
+              class="w-full p-2 border rounded dark:bg-slate-900 dark:border-slate-600"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1"
+              >Currency/Unit Name</label
+            >
+            <input
+              type="text"
+              x-model="currentProfile.unit"
+              class="w-full p-2 border rounded dark:bg-slate-900 dark:border-slate-600"
+            />
+          </div>
+          <div class="pt-4 flex justify-between items-center">
+            <button
+              @click="deleteProfile()"
+              class="text-red-500 text-sm hover:underline"
+              :disabled="profiles.length <= 1"
+            >
+              Delete Profile
+            </button>
+            <button
+              @click="isEditingProfile = false"
+              class="bg-indigo-600 text-white px-6 py-2 rounded hover:bg-indigo-700"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div
+      x-show="toast.visible"
+      x-transition
+      class="fixed bottom-5 right-5 bg-gray-800 text-white px-4 py-2 rounded-lg shadow-lg z-[100] flex items-center gap-2"
+    >
+      <span>✅</span>
+      <span x-text="toast.message"></span>
+    </div>
+
+    <script>
+      function appData() {
+        return {
+          darkMode: false,
+          isEditingProfile: false,
+          activeProfileId: null,
+          calcMode: "standard", // 'standard' or 'reverse'
+          reverseType: "fiat", // 'fiat' ($) or 'margin' (%)
+          targetValue: 50, // Holds the target profit or margin value
+
+          // Working variables
+          amount: 100,
+          buyPrice: 0.1,
+          sellPrice: 0.15,
+          feePercent: 10,
+          feeFixed: 0.0,
+
+          toast: { visible: false, message: "" },
+          profiles: [],
+
+          initData() {
+            this.darkMode = JSON.parse(
+              localStorage.getItem("cc_darkmode") || "true"
+            );
+            const savedProfiles = localStorage.getItem("cc_profiles");
+            if (savedProfiles) {
+              this.profiles = JSON.parse(savedProfiles);
+            } else {
+              this.profiles = [
+                {
+                  id: Date.now(),
+                  name: "Default Game",
+                  unit: "Units",
+                  defaultFeePct: 10,
+                  defaultFeeFix: 0,
+                },
+              ];
+            }
+            const lastId = JSON.parse(localStorage.getItem("cc_active_id"));
+            this.activeProfileId =
+              lastId && this.profiles.find((p) => p.id === lastId)
+                ? lastId
+                : this.profiles[0].id;
+            this.loadProfile();
+
+            this.$watch("darkMode", (val) =>
+              localStorage.setItem("cc_darkmode", val)
+            );
+            this.$watch("activeProfileId", (val) => {
+              localStorage.setItem("cc_active_id", val);
+              this.loadProfile();
+            });
+            this.$watch("profiles", (val) =>
+              localStorage.setItem("cc_profiles", JSON.stringify(val))
+            );
+            this.$watch("feePercent", (val) =>
+              this.updateCurrentProfileDefaults()
+            );
+            this.$watch("feeFixed", (val) =>
+              this.updateCurrentProfileDefaults()
+            );
+          },
+
+          get currentProfile() {
+            return (
+              this.profiles.find((p) => p.id == this.activeProfileId) ||
+              this.profiles[0]
+            );
+          },
+
+          loadProfile() {
+            const p = this.currentProfile;
+            this.feePercent = p.defaultFeePct;
+            this.feeFixed = p.defaultFeeFix;
+          },
+
+          updateCurrentProfileDefaults() {
+            const idx = this.profiles.findIndex(
+              (p) => p.id == this.activeProfileId
+            );
+            if (idx !== -1) {
+              this.profiles[idx].defaultFeePct = this.feePercent;
+              this.profiles[idx].defaultFeeFix = this.feeFixed;
+              this.profiles = [...this.profiles];
+            }
+          },
+
+          setMode(mode) {
+            this.calcMode = mode;
+            if (mode === "reverse") this.calculateReverse();
+          },
+
+          // Central handler for inputs to trigger recalculations if in reverse mode
+          handleInput() {
+            if (this.calcMode === "reverse") {
+              this.calculateReverse();
+            }
+          },
+
+          calculateReverse() {
+            // Safety check to prevent division by zero
+            if (this.amount <= 0) return;
+
+            const feeDec = this.feePercent / 100;
+
+            if (this.reverseType === "fiat") {
+              // Formula: (TargetProfit + Cost + FixedFee) / (Amount * (1 - FeePercent))
+              const totalCost = this.amount * this.buyPrice;
+              const numerator = this.targetValue + totalCost + this.feeFixed;
+              const denominator = this.amount * (1 - feeDec);
+
+              if (denominator > 0) {
+                this.sellPrice = numerator / denominator;
+              }
+            } else {
+              // Formula: Target Margin % logic
+              // Revenue = (Cost + FixedFee) / (1 - FeePercent - TargetMarginDecimal)
+              const marginDec = this.targetValue / 100;
+              const totalCost = this.amount * this.buyPrice;
+              const denominator = 1 - feeDec - marginDec;
+
+              if (denominator > 0) {
+                const reqRevenue = (totalCost + this.feeFixed) / denominator;
+                this.sellPrice = reqRevenue / this.amount;
+              } else {
+                // Impossible margin (e.g. asking for 90% margin when fees are 20%)
+                this.sellPrice = 0;
+              }
+            }
+          },
+
+          createNewProfile() {
+            const newProfile = {
+              id: Date.now(),
+              name: "New Game " + (this.profiles.length + 1),
+              unit: "Gold",
+              defaultFeePct: 0,
+              defaultFeeFix: 0,
+            };
+            this.profiles.push(newProfile);
+            this.activeProfileId = newProfile.id;
+            this.isEditingProfile = true;
+          },
+
+          deleteProfile() {
+            if (this.profiles.length <= 1) return;
+            if (!confirm("Delete this profile?")) return;
+            this.profiles = this.profiles.filter(
+              (p) => p.id != this.activeProfileId
+            );
+            this.activeProfileId = this.profiles[0].id;
+            this.isEditingProfile = false;
+          },
+
+          get revenue() {
+            return this.amount * this.sellPrice;
+          },
+          get cost() {
+            return this.amount * this.buyPrice;
+          },
+          get totalFees() {
+            return this.revenue * (this.feePercent / 100) + this.feeFixed;
+          },
+          get netProfit() {
+            return this.revenue - this.cost - this.totalFees;
+          },
+          get margin() {
+            if (this.revenue <= 0) return 0;
+            return ((this.netProfit / this.revenue) * 100).toFixed(2);
+          },
+          get breakEvenPrice() {
+            const feeDec = this.feePercent / 100;
+            const divisor = this.amount * (1 - feeDec);
+            if (divisor <= 0) return "Err";
+            return ((this.cost + this.feeFixed) / divisor).toFixed(4);
+          },
+
+          formatMoney(val) {
+            return new Intl.NumberFormat("en-US", {
+              style: "currency",
+              currency: "USD",
+            }).format(val);
+          },
+          toggleDark() {
+            this.darkMode = !this.darkMode;
+          },
+          resetInputs() {
+            this.amount = 0;
+            if (this.calcMode === "standard") this.sellPrice = 0;
+            this.buyPrice = 0;
+            this.targetValue = 0;
+          },
+          copyToClipboard(val, type) {
+            navigator.clipboard.writeText(val.toFixed(4));
+            this.showToast(type + " Copied!");
+          },
+          showToast(msg) {
+            this.toast.message = msg;
+            this.toast.visible = true;
+            setTimeout(() => {
+              this.toast.visible = false;
+            }, 2000);
+          },
+        };
+      }
+    </script>
+  </body>
+</html>
